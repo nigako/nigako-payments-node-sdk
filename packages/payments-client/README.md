@@ -1,0 +1,68 @@
+# @nigako/payments-client
+
+The stateless **PaiementPro** core shared by every Nigako `-api` — pay-in init + the self-signed
+callback token. Framework-agnostic (no NestJS), XOF. Refund / disbursement / wallet and the payment
+**state machine** are **per-app** and are *not* in this package. See the **`nigako-payments` skill`**.
+
+## Install
+
+```
+npm install @nigako/payments-client
+```
+
+## Use
+
+```ts
+import { PaiementProGateway, PaiementProChannel } from '@nigako/payments-client';
+
+const gateway = new PaiementProGateway({
+  merchantId: process.env.PAIEMENTPRO_MERCHANT_ID, // unset → initPayin throws PaiementProNotConfiguredError
+  secretKey: process.env.PAIEMENTPRO_SECRET_KEY,   // unset → callback signing off (accept-all except prod)
+  production: process.env.NODE_ENV === 'production',
+});
+
+// 1) Init a pay-in (the client opens `url`); NEVER send an amount from the client.
+const token = gateway.signNotificationToken(booking.uid); // embed in the notify URL path
+const { url, success } = await gateway.initPayin({
+  amount: booking.total,            // XOF whole francs
+  channel: PaiementProChannel.WAVECI,
+  description: `Réservation ${booking.reference}`,
+  referenceNumber: booking.uid,
+  notificationUrl: `${PUBLIC_API_URL}/v1/payments/paiement-pro/notify/${booking.uid}/${token}`,
+  returnUrl: clientReturnUrl,
+});
+
+// 2) On the server-to-server notification (the ONLY proof of payment), verify then settle idempotently.
+if (!gateway.verifyNotification(booking.uid, tokenFromPath)) throw Unauthorized;
+```
+
+**Wiring in a NestJS `-api`:** provide it via a factory that reads `ConfigService`, and map
+`PaiementProNotConfiguredError` → `ServiceUnavailableException`:
+
+```ts
+{
+  provide: PaiementProGateway,
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => new PaiementProGateway({
+    merchantId: config.get('PAIEMENTPRO_MERCHANT_ID'),
+    secretKey: config.get('PAIEMENTPRO_SECRET_KEY'),
+    production: config.get('NODE_ENV') === 'production',
+    logger: (m) => new Logger('PaiementPro').error(m),
+  }),
+}
+```
+
+## API
+
+- `new PaiementProGateway(config)` — `{ merchantId?, secretKey?, production?, fetchImpl?, logger? }`.
+- `initPayin(params) → Promise<{ url, success }>` — throws `PaiementProNotConfiguredError` if no
+  merchant id; a transport/gateway failure resolves to `{ url: null, success: false }`.
+- `signNotificationToken(reference) → string | null` · `verifyNotification(reference, token?) → boolean`
+  (constant-time; accept-all without a secret except in production).
+- `resolveInitUrl(useSandbox?)`, `PaiementProChannel` (WAVECI/MOMOCI/OMCIV2/FLOOZ).
+
+## Invariants
+
+Server-to-server notification is the **only** proof of payment (browser return is cosmetic); the callback
+token is an access gate, so keep settlement **idempotent**; money is **XOF `bigint`**; the secret **never**
+leaves the server.

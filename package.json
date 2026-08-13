@@ -1,0 +1,20 @@
+{
+  "name": "nigako-payments-node-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Nigako Payments — Node/TypeScript SDK. npm-workspaces monorepo for @nigako/payments-client (PaiementPro pay-in + self-signed callback token).",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "clean": "npm run clean --workspaces --if-present",
+    "build": "npm run build -w @nigako/payments-client",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.9.0"
+  }
+}
