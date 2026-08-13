@@ -41,14 +41,17 @@ export class PaiementProGateway implements PaymentGateway {
   private readonly merchantId?: string;
   private readonly secretKey?: string;
   private readonly production: boolean;
-  private readonly fetchImpl: typeof fetch;
+  /** An explicitly-injected `fetch`, or `undefined` to resolve `globalThis.fetch` **at call time**
+   * (so a stub installed after construction — e.g. in a test that boots the DI container first — is
+   * still honoured; snapshotting it in the constructor was the v0.1 gotcha). */
+  private readonly fetchImpl?: typeof fetch;
   private readonly logger?: (message: string) => void;
 
   constructor(config: PaiementProConfig = {}) {
     this.merchantId = config.merchantId || undefined;
     this.secretKey = config.secretKey || undefined;
     this.production = config.production ?? false;
-    this.fetchImpl = config.fetchImpl ?? globalThis.fetch;
+    this.fetchImpl = config.fetchImpl;
     this.logger = config.logger;
   }
 
@@ -82,10 +85,15 @@ export class PaiementProGateway implements PaymentGateway {
     if (params.customerFirstName) payload.customerFirstName = params.customerFirstName;
     // Note: PaiementPro spells this `customerLastname` (lowercase 'n').
     if (params.customerLastName) payload.customerLastname = params.customerLastName;
-    if (params.customerPhoneNumber) payload.customerPhoneNumber = params.customerPhoneNumber;
+    // PaiementPro expects the local `00…` international prefix, not `+` (e.g. `+225…` → `00225…`).
+    if (params.customerPhoneNumber) {
+      payload.customerPhoneNumber = params.customerPhoneNumber.replace(/^\+/, '00');
+    }
 
+    // Resolve `fetch` now (not at construction) so a global stub installed later is honoured.
+    const doFetch = this.fetchImpl ?? globalThis.fetch;
     try {
-      const res = await this.fetchImpl(initUrl, {
+      const res = await doFetch(initUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(payload),
@@ -101,7 +109,12 @@ export class PaiementProGateway implements PaymentGateway {
         this.logger?.(`PaiementPro init rejected (HTTP ${res.status}): ${raw.slice(0, 500)}`);
         return { url: null, success: false };
       }
-      return { url: body.url as string, success: true };
+      return {
+        url: body.url as string,
+        success: true,
+        // PaiementPro's own reference for this pay-in, when present — persist it as a gateway ref.
+        providerReference: body.sessionId != null ? String(body.sessionId) : undefined,
+      };
     } catch (err) {
       this.logger?.(`PaiementPro init request error: ${String(err)}`);
       return { url: null, success: false };

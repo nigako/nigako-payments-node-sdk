@@ -27,6 +27,9 @@ export interface PayInParams {
 export interface PayInResult {
   url: string | null;
   success: boolean;
+  /** The provider's own reference for this pay-in (PaiementPro's `sessionId`), when it returns one —
+   * useful to persist as a gateway ref. Optional and absent on failure; ignore it if you don't need it. */
+  providerReference?: string;
 }
 
 /**

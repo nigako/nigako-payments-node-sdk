@@ -4,3 +4,5 @@ dist/
 .env
 .env.*
 .DS_Store
+# npm auth token — never commit (publish credential from NPM.md)
+.npmrc

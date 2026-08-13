@@ -1,6 +1,6 @@
 {
   "name": "@nigako/payments-client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Nigako Payments — PaiementPro pay-in init + self-signed callback-token signing/verification. Stateless, framework-agnostic. XOF.",
   "license": "UNLICENSED",
   "main": "dist/index.js",

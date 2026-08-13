@@ -55,8 +55,12 @@ if (!gateway.verifyNotification(booking.uid, tokenFromPath)) throw Unauthorized;
 ## API
 
 - `new PaiementProGateway(config)` — `{ merchantId?, secretKey?, production?, fetchImpl?, logger? }`.
-- `initPayin(params) → Promise<{ url, success }>` — throws `PaymentNotConfiguredError` if no
-  merchant id; a transport/gateway failure resolves to `{ url: null, success: false }`.
+  `fetchImpl` is resolved **at call time** when omitted, so a global `fetch` stub installed after
+  construction (e.g. a test that boots the DI container first) is honoured.
+- `initPayin(params) → Promise<{ url, success, providerReference? }>` — throws `PaymentNotConfiguredError`
+  if no merchant id; a transport/gateway failure resolves to `{ url: null, success: false }`.
+  `providerReference` carries PaiementPro's `sessionId` on success (when present) — persist it as a gateway
+  ref. `customerPhoneNumber` is normalised `+`→`00` (PaiementPro's local international prefix).
 - `signNotificationToken(reference) → string | null` · `verifyNotification(reference, token?) → boolean`
   (constant-time; accept-all without a secret except in production).
 - `resolveInitUrl(useSandbox?)`, `PaiementProChannel` (WAVECI/MOMOCI/OMCIV2/FLOOZ) — **PaiementPro's**

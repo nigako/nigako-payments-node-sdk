@@ -61,7 +61,7 @@ test('initPayin: posts the XOF payload and returns the url on success', async ()
   };
   const gw = new PaiementProGateway({ merchantId: 'MID', fetchImpl });
   const res = await gw.initPayin({ ...baseParams(), channel: PaiementProChannel.WAVECI, customerLastName: 'Koné' });
-  assert.deepEqual(res, { url: 'https://pay/x', success: true });
+  assert.deepEqual(res, { url: 'https://pay/x', success: true, providerReference: undefined });
 
   assert.equal(calls.length, 1);
   assert.match(calls[0].url, /www\.paiementpro\.net/);
@@ -71,6 +71,35 @@ test('initPayin: posts the XOF payload and returns the url on success', async ()
   assert.equal(body.referenceNumber, 'DGB-1');
   assert.equal(body.notificationURL, 'https://api/notify/DGB-1/token');
   assert.equal(body.customerLastname, 'Koné'); // PaiementPro's lowercase-n spelling
+});
+
+test('initPayin: normalises the phone `+`→`00` and surfaces the provider reference', async () => {
+  let sentBody;
+  const fetchImpl = async (_url, init) => {
+    sentBody = JSON.parse(init.body);
+    return { ok: true, status: 200, text: async () => JSON.stringify({ success: true, url: 'https://pay/x', sessionId: 'sess-42' }) };
+  };
+  const gw = new PaiementProGateway({ merchantId: 'MID', fetchImpl });
+  const res = await gw.initPayin({ ...baseParams(), customerPhoneNumber: '+2250700000000' });
+  assert.equal(sentBody.customerPhoneNumber, '002250700000000'); // `+` → `00`, only the leading one
+  assert.deepEqual(res, { url: 'https://pay/x', success: true, providerReference: 'sess-42' });
+});
+
+test('initPayin: resolves globalThis.fetch at call time (stub installed after construction)', async () => {
+  const gw = new PaiementProGateway({ merchantId: 'MID' }); // no fetchImpl → must read the global lazily
+  const original = globalThis.fetch;
+  let hit = false;
+  globalThis.fetch = async () => {
+    hit = true;
+    return { ok: true, status: 200, text: async () => JSON.stringify({ success: true, url: 'https://pay/y' }) };
+  };
+  try {
+    const res = await gw.initPayin(baseParams());
+    assert.equal(hit, true, 'used the stub installed after construction');
+    assert.equal(res.url, 'https://pay/y');
+  } finally {
+    globalThis.fetch = original;
+  }
 });
 
 test('initPayin: resolves { url:null, success:false } on gateway rejection (never throws)', async () => {
