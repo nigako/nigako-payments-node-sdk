@@ -4,7 +4,7 @@ const assert = require('node:assert');
 const {
   PaiementProGateway,
   PaiementProChannel,
-  PaiementProNotConfiguredError,
+  PaymentNotConfiguredError,
 } = require('../dist');
 
 const okFetch = (payload) => async () => ({
@@ -39,11 +39,18 @@ test('verifyNotification: constant-time match with a secret', () => {
   assert.equal(gw.verifyNotification('ref', undefined), false); // missing
 });
 
-test('initPayin: throws when unconfigured (no merchant id)', async () => {
+test('initPayin: throws PaymentNotConfiguredError when unconfigured (no merchant id)', async () => {
   await assert.rejects(
     () => new PaiementProGateway({}).initPayin(baseParams()),
-    PaiementProNotConfiguredError,
+    PaymentNotConfiguredError,
   );
+});
+
+test('PaiementProGateway satisfies the generic PaymentGateway shape', () => {
+  const gw = new PaiementProGateway({ merchantId: 'M' });
+  for (const m of ['initPayin', 'signNotificationToken', 'verifyNotification']) {
+    assert.equal(typeof gw[m], 'function', `missing ${m}`);
+  }
 });
 
 test('initPayin: posts the XOF payload and returns the url on success', async () => {

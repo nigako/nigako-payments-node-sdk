@@ -1,10 +1,5 @@
 import { createHmac, timingSafeEqual } from 'crypto';
-import {
-  PaiementProConfig,
-  PaiementProInitParams,
-  PaiementProInitResult,
-  PaiementProNotConfiguredError,
-} from './types';
+import { PayInParams, PayInResult, PaymentGateway, PaymentNotConfiguredError } from './payment-gateway';
 
 // PaiementPro's payin-init endpoint differs between environments (host + path). One merchant account;
 // the caller's reviewer/demo allow-list decides sandbox per pay-in — there is no global mode flag.
@@ -15,8 +10,23 @@ const PAYIN_INIT_URL_SANDBOX =
 // ISO-4217 numeric for XOF (FCFA).
 const COUNTRY_CURRENCY_CODE_XOF = '952';
 
+/** How to construct a {@link PaiementProGateway}. All fields optional so "unset = disabled" holds. */
+export interface PaiementProConfig {
+  /** PaiementPro merchant account id (same for sandbox + production). Unset → `initPayin` throws. */
+  merchantId?: string;
+  /** HMAC secret for the self-signed callback token. Unset → signing disabled (accept-all except prod). */
+  secretKey?: string;
+  /** When true, `verifyNotification` **fails closed** if no secret is configured (production safety). */
+  production?: boolean;
+  /** Injectable `fetch` (defaults to the global). Pass a fake in tests / a pinned impl if desired. */
+  fetchImpl?: typeof fetch;
+  /** Optional error sink (the package logs nothing itself) — wire your framework logger here. */
+  logger?: (message: string) => void;
+}
+
 /**
- * PaiementPro adapter — the **stateless core** shared by every Nigako `-api`. Two jobs:
+ * PaiementPro implementation of {@link PaymentGateway} — the **stateless core** shared by every Nigako
+ * `-api`. Rail codes are {@link PaiementProChannel} (provider-specific). Two jobs:
  *
  *  - **Pay-in init** (`initPayin`): POST the order to the env-selected endpoint; PaiementPro returns
  *    `{ url, success }` where `url` is the hosted-payment page the client opens.
@@ -27,7 +37,7 @@ const COUNTRY_CURRENCY_CODE_XOF = '952';
  * Framework-agnostic and side-effect-free beyond the `fetch` call. Settlement, the payment state
  * machine, refunds and disbursement are **per-app** and live in the consuming API, not here.
  */
-export class PaiementProGateway {
+export class PaiementProGateway implements PaymentGateway {
   private readonly merchantId?: string;
   private readonly secretKey?: string;
   private readonly production: boolean;
@@ -48,13 +58,13 @@ export class PaiementProGateway {
   }
 
   /**
-   * Initialise a pay-in and return `{ url, success }`. Throws {@link PaiementProNotConfiguredError} only
+   * Initialise a pay-in and return `{ url, success }`. Throws {@link PaymentNotConfiguredError} only
    * when unconfigured (no merchant id); a gateway/transport failure resolves to `{ url: null, success:
    * false }` so the caller always gets a structured outcome.
    */
-  async initPayin(params: PaiementProInitParams): Promise<PaiementProInitResult> {
+  async initPayin(params: PayInParams): Promise<PayInResult> {
     if (!this.merchantId) {
-      throw new PaiementProNotConfiguredError();
+      throw new PaymentNotConfiguredError('PaiementPro is not configured (no merchant id).');
     }
     const initUrl = this.resolveInitUrl(params.useSandbox);
     const payload: Record<string, unknown> = {

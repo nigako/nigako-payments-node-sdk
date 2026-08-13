@@ -16,7 +16,7 @@ npm install @nigako/payments-client
 import { PaiementProGateway, PaiementProChannel } from '@nigako/payments-client';
 
 const gateway = new PaiementProGateway({
-  merchantId: process.env.PAIEMENTPRO_MERCHANT_ID, // unset → initPayin throws PaiementProNotConfiguredError
+  merchantId: process.env.PAIEMENTPRO_MERCHANT_ID, // unset → initPayin throws PaymentNotConfiguredError
   secretKey: process.env.PAIEMENTPRO_SECRET_KEY,   // unset → callback signing off (accept-all except prod)
   production: process.env.NODE_ENV === 'production',
 });
@@ -37,7 +37,7 @@ if (!gateway.verifyNotification(booking.uid, tokenFromPath)) throw Unauthorized;
 ```
 
 **Wiring in a NestJS `-api`:** provide it via a factory that reads `ConfigService`, and map
-`PaiementProNotConfiguredError` → `ServiceUnavailableException`:
+`PaymentNotConfiguredError` → `ServiceUnavailableException`:
 
 ```ts
 {
@@ -55,11 +55,16 @@ if (!gateway.verifyNotification(booking.uid, tokenFromPath)) throw Unauthorized;
 ## API
 
 - `new PaiementProGateway(config)` — `{ merchantId?, secretKey?, production?, fetchImpl?, logger? }`.
-- `initPayin(params) → Promise<{ url, success }>` — throws `PaiementProNotConfiguredError` if no
+- `initPayin(params) → Promise<{ url, success }>` — throws `PaymentNotConfiguredError` if no
   merchant id; a transport/gateway failure resolves to `{ url: null, success: false }`.
 - `signNotificationToken(reference) → string | null` · `verifyNotification(reference, token?) → boolean`
   (constant-time; accept-all without a secret except in production).
-- `resolveInitUrl(useSandbox?)`, `PaiementProChannel` (WAVECI/MOMOCI/OMCIV2/FLOOZ).
+- `resolveInitUrl(useSandbox?)`, `PaiementProChannel` (WAVECI/MOMOCI/OMCIV2/FLOOZ) — **PaiementPro's**
+  rails (provider-specific).
+- **Generic contract**: `PaiementProGateway implements PaymentGateway` (`{ initPayin, signNotificationToken,
+  verifyNotification }`). The generic `PayInParams.channel` is an opaque **`string`** — a future provider
+  implements the same `PaymentGateway` with its own rail codes. Import `PaymentGateway`/`PayInParams` to
+  type against the interface rather than the PaiementPro class.
 
 ## Invariants
 
