@@ -1,0 +1,51 @@
+name: Publish SDK package
+
+# Publishes @nigako/payments-client to the public npm registry (npmjs.com) so consumers — our APIs —
+# install anonymously. Trigger by tag:
+#   payments-client-v0.1.0  -> publishes packages/payments-client
+# Auth: NPM_TOKEN repo secret (npm automation token with publish rights on the @nigako scope).
+
+on:
+  push:
+    tags:
+      - 'payments-client-v*'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Package to publish
+        type: choice
+        options:
+          - payments-client
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          scope: '@nigako'
+      - run: npm ci
+      - name: Resolve target package
+        id: pkg
+        run: |
+          if [ -n "${{ github.event.inputs.package }}" ]; then
+            PKG="${{ github.event.inputs.package }}"
+          else
+            PKG="$(echo "${GITHUB_REF_NAME}" | sed -E 's/-v[0-9].*$//')"
+          fi
+          echo "dir=packages/$PKG" >> "$GITHUB_OUTPUT"
+          echo "Publishing $PKG"
+      - name: Build all packages
+        run: npm run build
+      - name: Publish
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
