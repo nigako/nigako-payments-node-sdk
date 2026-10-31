@@ -4,6 +4,12 @@ The stateless **PaiementPro** core shared by every Nigako `-api` — pay-in init
 callback token. Framework-agnostic (no NestJS), XOF. Refund / disbursement / wallet and the payment
 **state machine** are **per-app** and are *not* in this package. See the **`nigako-payments` skill`**.
 
+> **New (v0.3): the provider-agnostic gateway contract** — `payIn` / `payOut` / `getStatus` /
+> `verifyWebhook`, canonical `TransactionStatus`/`TransactionChannel`, `bigint` XOF, base62 `reference`
+> codec, and the **`FakeGateway`** dev/QA provider. Imported from the subpath
+> **`@nigako/payments-client/gateway`**; the legacy PaiementPro surface above is unchanged. This is the
+> go-forward contract all future providers (Paymetrust/Jèko/PI-SPI) implement. **See `GATEWAY.md`.**
+
 ## Install
 
 ```

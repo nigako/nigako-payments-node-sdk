@@ -1,13 +1,31 @@
 {
   "name": "@nigako/payments-client",
-  "version": "0.2.0",
-  "description": "Nigako Payments — PaiementPro pay-in init + self-signed callback-token signing/verification. Stateless, framework-agnostic. XOF.",
+  "version": "0.3.0",
+  "description": "Nigako Payments — provider-agnostic payment gateway (payIn/payOut/getStatus/verifyWebhook) + legacy PaiementPro pay-in. Stateless, framework-agnostic. XOF.",
   "license": "UNLICENSED",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "gateway": [
+        "./dist/gateway/index.d.ts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./gateway": {
+      "types": "./dist/gateway/index.d.ts",
+      "default": "./dist/gateway/index.js"
+    }
+  },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "GATEWAY.md"
   ],
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
